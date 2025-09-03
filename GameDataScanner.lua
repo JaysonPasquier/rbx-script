@@ -188,14 +188,23 @@ local function sendToVPS(data)
         })
 
         if response and response.Body then
-            local responseData = HttpService:JSONDecode(response.Body)
-            if responseData.success then
-                return responseData.url
+            print("📡 VPS Response: " .. tostring(response.Body))
+
+            local success, responseData = pcall(function()
+                return HttpService:JSONDecode(response.Body)
+            end)
+
+            if success and responseData then
+                if responseData.success then
+                    return responseData.url
+                else
+                    return "Error: " .. (responseData.error or "Unknown error")
+                end
             else
-                return "Error: " .. (responseData.error or "Unknown error")
+                return "Error: Invalid JSON response - " .. tostring(response.Body)
             end
         else
-            return "Error: No response from VPS"
+            return "Error: No response from VPS - " .. tostring(response)
         end
     end)
 
