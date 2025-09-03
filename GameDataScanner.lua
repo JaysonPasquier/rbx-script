@@ -7,10 +7,10 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
 
--- PASTEBIN API CONFIGURATION
--- Get your API key from: https://pastebin.com/doc_api
-local PASTEBIN_API_KEY = "6A7xLcFEjNECEk00xc7OzvA6tWxuinhr" -- Replace with your actual API key
-local PASTEBIN_API_URL = "https://pastebin.com/api/api_post.php"
+-- VPS CONFIGURATION
+-- Your VPS details
+local VPS_IP = "194.164.89.41"
+local VPS_ENDPOINT = "http://194.164.89.41/game-data-receiver.php"
 
 -- Function to create GUI display for mobile users
 local function createURLDisplay(url)
@@ -161,116 +161,55 @@ local function urlEncode(str)
     return str
 end
 
--- Function to send data to Pastebin in chunks
-local function sendToPastebin(data)
+-- Function to send data to VPS
+local function sendToVPS(data)
     local success, result = pcall(function()
-        local pasteContent = table.concat(data, "\n")
-        local pasteName = "Roblox Game Data - " .. os.date("%Y-%m-%d %H:%M:%S")
+        local gameData = table.concat(data, "\n")
+        local timestamp = os.date("%Y-%m-%d %H:%M:%S")
 
-                -- Check if content is too large (Pastebin limit is ~512KB)
-        if #pasteContent > 100000 then -- 100KB limit (much smaller)
-            -- Split into multiple pastes
-            local chunks = {}
-            local chunkSize = 2000 -- 2k lines per chunk (much smaller)
-            local totalChunks = math.ceil(#data / chunkSize)
+        print("📤 Sending data to VPS...")
+        print("📊 Data size: " .. #gameData .. " characters")
 
-            print("📊 Data too large! Splitting into " .. totalChunks .. " chunks...")
-            print("📏 Each chunk will be ~" .. math.floor(#pasteContent / totalChunks) .. " characters")
+        -- Prepare JSON data
+        local jsonData = {
+            game_name = game.Name,
+            game_data = gameData,
+            timestamp = timestamp
+        }
 
-            for i = 1, totalChunks do
-                local startIndex = (i - 1) * chunkSize + 1
-                local endIndex = math.min(i * chunkSize, #data)
-                local chunk = {}
+        -- Send to VPS
+        local response = request({
+            Url = VPS_ENDPOINT,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode(jsonData)
+        })
 
-                for j = startIndex, endIndex do
-                    table.insert(chunk, data[j])
-                end
-
-                local chunkContent = table.concat(chunk, "\n")
-                local chunkName = pasteName .. " (Part " .. i .. "/" .. totalChunks .. ")"
-
-                print("📤 Uploading chunk " .. i .. "/" .. totalChunks .. " (" .. #chunkContent .. " chars)...")
-
-                -- Send each chunk with better error handling
-                local chunkBody = "api_dev_key=" .. urlEncode(PASTEBIN_API_KEY) ..
-                                "&api_option=paste" ..
-                                "&api_paste_code=" .. urlEncode(chunkContent) ..
-                                "&api_paste_name=" .. urlEncode(chunkName) ..
-                                "&api_paste_format=text" ..  -- Changed from lua to text
-                                "&api_paste_private=1" ..
-                                "&api_paste_expire_date=1M"
-
-                local chunkSuccess, chunkResult = pcall(function()
-                    local response = request({
-                        Url = PASTEBIN_API_URL,
-                        Method = "POST",
-                        Headers = {
-                            ["Content-Type"] = "application/x-www-form-urlencoded"
-                        },
-                        Body = chunkBody
-                    })
-                    return response
-                end)
-
-                if chunkSuccess and chunkResult and chunkResult.Body then
-                    if chunkResult.Body:find("pastebin.com") then
-                        table.insert(chunks, chunkResult.Body)
-                        print("✅ Chunk " .. i .. "/" .. totalChunks .. " uploaded: " .. chunkResult.Body)
-                    else
-                        warn("❌ Chunk " .. i .. " failed - Response: " .. tostring(chunkResult.Body))
-                    end
-                else
-                    warn("❌ Chunk " .. i .. " failed - Error: " .. tostring(chunkResult))
-                end
-
-                -- Longer delay between requests
-                wait(2)
-            end
-
-            -- Return the first chunk URL with info about others
-            if #chunks > 0 then
-                local result = "Multiple pastes created:\n"
-                for i, url in pairs(chunks) do
-                    result = result .. "Part " .. i .. ": " .. url .. "\n"
-                end
-                return result
+        if response and response.Body then
+            local responseData = HttpService:JSONDecode(response.Body)
+            if responseData.success then
+                return responseData.url
             else
-                return "Failed to create any pastes"
+                return "Error: " .. (responseData.error or "Unknown error")
             end
         else
-            -- Single paste for smaller content
-            local postBody = "api_dev_key=" .. urlEncode(PASTEBIN_API_KEY) ..
-                            "&api_option=paste" ..
-                            "&api_paste_code=" .. urlEncode(pasteContent) ..
-                            "&api_paste_name=" .. urlEncode(pasteName) ..
-                            "&api_paste_format=lua" ..
-                            "&api_paste_private=1" ..
-                            "&api_paste_expire_date=1M"
-
-            local response = request({
-                Url = PASTEBIN_API_URL,
-                Method = "POST",
-                Headers = {
-                    ["Content-Type"] = "application/x-www-form-urlencoded"
-                },
-                Body = postBody
-            })
-
-            return response.Body
+            return "Error: No response from VPS"
         end
     end)
 
     if success then
-        print("✅ Data successfully sent to Pastebin!")
-        print("📋 Pastebin URL(s): " .. result)
-        print("🔗 Copy the URL(s) and open in your browser to get the data")
+        print("✅ Data successfully sent to VPS!")
+        print("📋 VPS URL: " .. result)
+        print("🔗 Copy this URL and open it in your browser to get the data")
 
         -- Create GUI to display URL on screen (for mobile users)
         createURLDisplay(result)
 
         return result
     else
-        warn("❌ Failed to send data to Pastebin: " .. tostring(result))
+        warn("❌ Failed to send data to VPS: " .. tostring(result))
         return nil
     end
 end
@@ -350,27 +289,26 @@ local function scanGame()
         end
     end
 
-    print("📊 Scan complete! Found " .. #allData .. " lines of data")
-    print("📤 Sending to Pastebin...")
+        print("📊 Scan complete! Found " .. #allData .. " lines of data")
+    print("📤 Sending to VPS...")
 
-    -- Send to Pastebin
-    local pastebinUrl = sendToPastebin(allData)
+    -- Send to VPS
+    local vpsUrl = sendToVPS(allData)
 
-    if pastebinUrl then
+    if vpsUrl then
         print("🎉 SUCCESS! Your game data is now available at:")
-        print("🔗 " .. pastebinUrl)
+        print("🔗 " .. vpsUrl)
         print("📋 Copy this URL and open it in your browser to get all the data")
         print("💾 You can then copy the data and paste it into your base-data.txt file")
     else
-        print("❌ Failed to send data to Pastebin. Check your API key and internet connection.")
+        print("❌ Failed to send data to VPS. Check your VPS connection.")
     end
 end
 
--- Check if API key is set
-if PASTEBIN_API_KEY == "YOUR_PASTEBIN_API_KEY_HERE" then
-    warn("⚠️  WARNING: Please set your Pastebin API key in the script!")
-    warn("📝 Get your API key from: https://pastebin.com/doc_api")
-    warn("🔧 Replace 'YOUR_PASTEBIN_API_KEY_HERE' with your actual API key")
+-- Check if VPS is configured
+if VPS_IP == "YOUR_VPS_IP_HERE" then
+    warn("⚠️  WARNING: Please set your VPS IP in the script!")
+    warn("🔧 Replace 'YOUR_VPS_IP_HERE' with your actual VPS IP")
     return
 end
 
