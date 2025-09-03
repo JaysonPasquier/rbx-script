@@ -10,7 +10,7 @@ local StarterGui = game:GetService("StarterGui")
 -- VPS CONFIGURATION
 -- Your VPS details
 local VPS_IP = "194.164.89.41"
-local VPS_ENDPOINT = "http://194.164.89.41/vps-data-saver.php"
+local VPS_ENDPOINT = "http://194.164.89.41/vps-data-saver.py"
 
 -- DISCORD WEBHOOK CONFIGURATION
 local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1412868631683137737/GyL0UkpDzgQTpS5l4eGKtPv_Vabivy3EHMny3592LR5envpw9bHrEMzfO4Adt1aSxno_"
