@@ -10,7 +10,7 @@ local StarterGui = game:GetService("StarterGui")
 -- VPS CONFIGURATION
 -- Your VPS details
 local VPS_IP = "194.164.89.41"
-local VPS_ENDPOINT = "http://194.164.89.41/game-data-receiver.php"
+local VPS_ENDPOINT = "http://194.164.89.41/vps-data-saver.php"
 
 -- Function to create GUI display for mobile users
 local function createURLDisplay(url)
@@ -187,7 +187,7 @@ local function sendToVPS(data)
             Body = HttpService:JSONEncode(jsonData)
         })
 
-        if response and response.Body then
+                if response and response.Body then
             print("📡 VPS Response: " .. tostring(response.Body))
 
             local success, responseData = pcall(function()
@@ -196,7 +196,7 @@ local function sendToVPS(data)
 
             if success and responseData then
                 if responseData.success then
-                    return responseData.url
+                    return responseData.viewer_url
                 else
                     return "Error: " .. (responseData.error or "Unknown error")
                 end
@@ -211,7 +211,7 @@ local function sendToVPS(data)
     if success then
         print("✅ Data successfully sent to VPS!")
         print("📋 VPS URL: " .. result)
-        print("🔗 Copy this URL and open it in your browser to get the data")
+        print("🔗 Copy this URL and open it in your browser to view all your game data")
 
         -- Create GUI to display URL on screen (for mobile users)
         createURLDisplay(result)
@@ -307,8 +307,8 @@ local function scanGame()
     if vpsUrl then
         print("🎉 SUCCESS! Your game data is now available at:")
         print("🔗 " .. vpsUrl)
-        print("📋 Copy this URL and open it in your browser to get all the data")
-        print("💾 You can then copy the data and paste it into your base-data.txt file")
+        print("📋 Copy this URL and open it in your browser to view all your game data")
+        print("💾 You can view, download, or copy any of your saved game data files")
     else
         print("❌ Failed to send data to VPS. Check your VPS connection.")
     end
