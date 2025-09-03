@@ -161,38 +161,99 @@ local function urlEncode(str)
     return str
 end
 
--- Function to send data to Pastebin using webhook-style request
+-- Function to send data to Pastebin in chunks
 local function sendToPastebin(data)
     local success, result = pcall(function()
         local pasteContent = table.concat(data, "\n")
         local pasteName = "Roblox Game Data - " .. os.date("%Y-%m-%d %H:%M:%S")
 
-        -- Manually build the POST body
-        local postBody = "api_dev_key=" .. urlEncode(PASTEBIN_API_KEY) ..
-                        "&api_option=paste" ..
-                        "&api_paste_code=" .. urlEncode(pasteContent) ..
-                        "&api_paste_name=" .. urlEncode(pasteName) ..
-                        "&api_paste_format=lua" ..
-                        "&api_paste_private=1" ..
-                        "&api_paste_expire_date=1M"
+        -- Check if content is too large (Pastebin limit is ~512KB)
+        if #pasteContent > 500000 then -- 500KB limit
+            -- Split into multiple pastes
+            local chunks = {}
+            local chunkSize = 10000 -- 10k lines per chunk
+            local totalChunks = math.ceil(#data / chunkSize)
 
-        -- Use webhook-style request
-        local response = request({
-            Url = PASTEBIN_API_URL,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/x-www-form-urlencoded"
-            },
-            Body = postBody
-        })
+            print("📊 Data too large! Splitting into " .. totalChunks .. " chunks...")
 
-        return response.Body
+            for i = 1, totalChunks do
+                local startIndex = (i - 1) * chunkSize + 1
+                local endIndex = math.min(i * chunkSize, #data)
+                local chunk = {}
+
+                for j = startIndex, endIndex do
+                    table.insert(chunk, data[j])
+                end
+
+                local chunkContent = table.concat(chunk, "\n")
+                local chunkName = pasteName .. " (Part " .. i .. "/" .. totalChunks .. ")"
+
+                -- Send each chunk
+                local chunkBody = "api_dev_key=" .. urlEncode(PASTEBIN_API_KEY) ..
+                                "&api_option=paste" ..
+                                "&api_paste_code=" .. urlEncode(chunkContent) ..
+                                "&api_paste_name=" .. urlEncode(chunkName) ..
+                                "&api_paste_format=lua" ..
+                                "&api_paste_private=1" ..
+                                "&api_paste_expire_date=1M"
+
+                local response = request({
+                    Url = PASTEBIN_API_URL,
+                    Method = "POST",
+                    Headers = {
+                        ["Content-Type"] = "application/x-www-form-urlencoded"
+                    },
+                    Body = chunkBody
+                })
+
+                if response.Body and response.Body:find("pastebin.com") then
+                    table.insert(chunks, response.Body)
+                    print("✅ Chunk " .. i .. "/" .. totalChunks .. " uploaded: " .. response.Body)
+                else
+                    warn("❌ Failed to upload chunk " .. i)
+                end
+
+                -- Small delay between requests
+                wait(1)
+            end
+
+            -- Return the first chunk URL with info about others
+            if #chunks > 0 then
+                local result = "Multiple pastes created:\n"
+                for i, url in pairs(chunks) do
+                    result = result .. "Part " .. i .. ": " .. url .. "\n"
+                end
+                return result
+            else
+                return "Failed to create any pastes"
+            end
+        else
+            -- Single paste for smaller content
+            local postBody = "api_dev_key=" .. urlEncode(PASTEBIN_API_KEY) ..
+                            "&api_option=paste" ..
+                            "&api_paste_code=" .. urlEncode(pasteContent) ..
+                            "&api_paste_name=" .. urlEncode(pasteName) ..
+                            "&api_paste_format=lua" ..
+                            "&api_paste_private=1" ..
+                            "&api_paste_expire_date=1M"
+
+            local response = request({
+                Url = PASTEBIN_API_URL,
+                Method = "POST",
+                Headers = {
+                    ["Content-Type"] = "application/x-www-form-urlencoded"
+                },
+                Body = postBody
+            })
+
+            return response.Body
+        end
     end)
 
     if success then
         print("✅ Data successfully sent to Pastebin!")
-        print("📋 Pastebin URL: " .. result)
-        print("🔗 Copy this URL and open it in your browser to get the data")
+        print("📋 Pastebin URL(s): " .. result)
+        print("🔗 Copy the URL(s) and open in your browser to get the data")
 
         -- Create GUI to display URL on screen (for mobile users)
         createURLDisplay(result)
