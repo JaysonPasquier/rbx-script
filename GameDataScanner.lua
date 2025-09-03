@@ -4,11 +4,98 @@
 
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local StarterGui = game:GetService("StarterGui")
 
 -- PASTEBIN API CONFIGURATION
 -- Get your API key from: https://pastebin.com/doc_api
 local PASTEBIN_API_KEY = "6A7xLcFEjNECEk00xc7OzvA6tWxuinhr" -- Replace with your actual API key
 local PASTEBIN_API_URL = "https://pastebin.com/api/api_post.php"
+
+-- Function to create GUI display for mobile users
+local function createURLDisplay(url)
+    -- Create GUI for all players
+    for _, player in pairs(Players:GetPlayers()) do
+        local playerGui = player:WaitForChild("PlayerGui")
+
+        -- Create ScreenGui
+        local screenGui = Instance.new("ScreenGui")
+        screenGui.Name = "PastebinURLDisplay"
+        screenGui.Parent = playerGui
+
+        -- Create main frame
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(0.8, 0, 0.6, 0)
+        frame.Position = UDim2.new(0.1, 0, 0.2, 0)
+        frame.BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
+        frame.BorderSizePixel = 0
+        frame.Parent = screenGui
+
+        -- Add corner radius
+        local corner = Instance.new("UICorner")
+        corner.CornerRadius = UDim.new(0, 10)
+        corner.Parent = frame
+
+        -- Create title
+        local title = Instance.new("TextLabel")
+        title.Size = UDim2.new(1, 0, 0.15, 0)
+        title.Position = UDim2.new(0, 0, 0, 0)
+        title.BackgroundTransparency = 1
+        title.Text = "🎉 Game Data Scanned Successfully!"
+        title.TextColor3 = Color3.new(1, 1, 1)
+        title.TextScaled = true
+        title.Font = Enum.Font.SourceSansBold
+        title.Parent = frame
+
+        -- Create URL label
+        local urlLabel = Instance.new("TextLabel")
+        urlLabel.Size = UDim2.new(1, -20, 0.4, 0)
+        urlLabel.Position = UDim2.new(0, 10, 0.2, 0)
+        urlLabel.BackgroundTransparency = 1
+        urlLabel.Text = "📋 Pastebin URL:\n" .. url
+        urlLabel.TextColor3 = Color3.new(0.7, 0.9, 1)
+        urlLabel.TextScaled = true
+        urlLabel.Font = Enum.Font.SourceSans
+        urlLabel.TextWrapped = true
+        urlLabel.Parent = frame
+
+        -- Create instructions
+        local instructions = Instance.new("TextLabel")
+        instructions.Size = UDim2.new(1, -20, 0.25, 0)
+        instructions.Position = UDim2.new(0, 10, 0.65, 0)
+        instructions.BackgroundTransparency = 1
+        instructions.Text = "📱 Instructions:\n1. Copy the URL above\n2. Open it in your browser\n3. Copy the data to your base-data.txt file"
+        instructions.TextColor3 = Color3.new(0.8, 0.8, 0.8)
+        instructions.TextScaled = true
+        instructions.Font = Enum.Font.SourceSans
+        instructions.TextWrapped = true
+        instructions.Parent = frame
+
+        -- Create close button
+        local closeButton = Instance.new("TextButton")
+        closeButton.Size = UDim2.new(0.3, 0, 0.1, 0)
+        closeButton.Position = UDim2.new(0.35, 0, 0.9, 0)
+        closeButton.BackgroundColor3 = Color3.new(0.2, 0.6, 1)
+        closeButton.Text = "Close"
+        closeButton.TextColor3 = Color3.new(1, 1, 1)
+        closeButton.TextScaled = true
+        closeButton.Font = Enum.Font.SourceSansBold
+        closeButton.Parent = frame
+
+        -- Add corner to button
+        local buttonCorner = Instance.new("UICorner")
+        buttonCorner.CornerRadius = UDim.new(0, 5)
+        buttonCorner.Parent = closeButton
+
+        -- Close button functionality
+        closeButton.MouseButton1Click:Connect(function()
+            screenGui:Destroy()
+        end)
+
+        -- Auto-close after 30 seconds
+        game:GetService("Debris"):AddItem(screenGui, 30)
+    end
+end
 
 -- Function to recursively scan all objects in the game
 local function scanObject(obj, path, depth)
@@ -83,6 +170,10 @@ local function sendToPastebin(data)
         print("✅ Data successfully sent to Pastebin!")
         print("📋 Pastebin URL: " .. result)
         print("🔗 Copy this URL and open it in your browser to get the data")
+
+        -- Create GUI to display URL on screen (for mobile users)
+        createURLDisplay(result)
+
         return result
     else
         warn("❌ Failed to send data to Pastebin: " .. tostring(result))
