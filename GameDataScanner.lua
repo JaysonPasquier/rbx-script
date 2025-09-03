@@ -149,27 +149,41 @@ local function scanObject(obj, path, depth)
     return data
 end
 
+-- Function to manually encode URL parameters
+local function urlEncode(str)
+    if str == nil then return "" end
+    str = tostring(str)
+    str = string.gsub(str, "\n", "\r\n")
+    str = string.gsub(str, "([^%w %-%_%.%~])", function(c)
+        return string.format("%%%02X", string.byte(c))
+    end)
+    str = string.gsub(str, " ", "+")
+    return str
+end
+
 -- Function to send data to Pastebin using webhook-style request
 local function sendToPastebin(data)
     local success, result = pcall(function()
-        local postData = {
-            api_dev_key = PASTEBIN_API_KEY,
-            api_option = "paste",
-            api_paste_code = table.concat(data, "\n"),
-            api_paste_name = "Roblox Game Data - " .. os.date("%Y-%m-%d %H:%M:%S"),
-            api_paste_format = "lua",
-            api_paste_private = "1", -- Unlisted paste
-            api_paste_expire_date = "1M" -- Expires in 1 month
-        }
+        local pasteContent = table.concat(data, "\n")
+        local pasteName = "Roblox Game Data - " .. os.date("%Y-%m-%d %H:%M:%S")
 
-        -- Use webhook-style request instead of HttpService:PostAsync
+        -- Manually build the POST body
+        local postBody = "api_dev_key=" .. urlEncode(PASTEBIN_API_KEY) ..
+                        "&api_option=paste" ..
+                        "&api_paste_code=" .. urlEncode(pasteContent) ..
+                        "&api_paste_name=" .. urlEncode(pasteName) ..
+                        "&api_paste_format=lua" ..
+                        "&api_paste_private=1" ..
+                        "&api_paste_expire_date=1M"
+
+        -- Use webhook-style request
         local response = request({
             Url = PASTEBIN_API_URL,
             Method = "POST",
             Headers = {
                 ["Content-Type"] = "application/x-www-form-urlencoded"
             },
-            Body = HttpService:UrlEncode(postData)
+            Body = postBody
         })
 
         return response.Body
