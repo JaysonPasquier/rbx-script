@@ -12,6 +12,9 @@ local StarterGui = game:GetService("StarterGui")
 local VPS_IP = "194.164.89.41"
 local VPS_ENDPOINT = "http://194.164.89.41/vps-data-saver.php"
 
+-- DISCORD WEBHOOK CONFIGURATION
+local DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1412868631683137737/GyL0UkpDzgQTpS5l4eGKtPv_Vabivy3EHMny3592LR5envpw9bHrEMzfO4Adt1aSxno_"
+
 -- Function to create GUI display for mobile users
 local function createURLDisplay(url)
     -- Create GUI for all players
@@ -161,6 +164,41 @@ local function urlEncode(str)
     return str
 end
 
+-- Function to send Discord webhook notification
+local function sendDiscordNotification(message, isError)
+    local success, result = pcall(function()
+        local color = isError and 15158332 or 3066993 -- Red for error, Green for success
+        local emoji = isError and "❌" or "✅"
+
+        local webhookData = {
+            embeds = {{
+                title = emoji .. " Game Data Scanner",
+                description = message,
+                color = color,
+                timestamp = os.date("!%Y-%m-%dT%H:%M:%SZ"),
+                footer = {
+                    text = "Roblox Game Data Scanner"
+                }
+            }}
+        }
+
+        local response = request({
+            Url = DISCORD_WEBHOOK_URL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/json"
+            },
+            Body = HttpService:JSONEncode(webhookData)
+        })
+
+        return response
+    end)
+
+    if not success then
+        print("⚠️ Failed to send Discord notification: " .. tostring(result))
+    end
+end
+
 -- Function to send data to VPS
 local function sendToVPS(data)
     local success, result = pcall(function()
@@ -169,6 +207,9 @@ local function sendToVPS(data)
 
         print("📤 Sending data to VPS...")
         print("📊 Data size: " .. #gameData .. " characters")
+
+        -- Send Discord notification about starting upload
+        sendDiscordNotification("🔄 **Starting game data upload**\n📊 Data size: " .. #gameData .. " characters\n🎮 Game: " .. game.Name, false)
 
         -- Prepare JSON data
         local jsonData = {
@@ -187,7 +228,7 @@ local function sendToVPS(data)
             Body = HttpService:JSONEncode(jsonData)
         })
 
-                if response and response.Body then
+                        if response and response.Body then
             print("📡 VPS Response: " .. tostring(response.Body))
 
             local success, responseData = pcall(function()
@@ -196,14 +237,30 @@ local function sendToVPS(data)
 
             if success and responseData then
                 if responseData.success then
+                    -- Send success notification to Discord
+                    local successMessage = "✅ **Data uploaded successfully!**\n"
+                    successMessage = successMessage .. "📁 File: " .. (responseData.filename or "Unknown") .. "\n"
+                    successMessage = successMessage .. "📊 Size: " .. (responseData.size or "Unknown") .. " bytes\n"
+                    successMessage = successMessage .. "🔗 Viewer URL: " .. (responseData.viewer_url or "Unknown")
+                    sendDiscordNotification(successMessage, false)
+
                     return responseData.viewer_url
                 else
+                    -- Send error notification to Discord
+                    local errorMessage = "❌ **VPS Error**\n" .. (responseData.error or "Unknown error")
+                    sendDiscordNotification(errorMessage, true)
                     return "Error: " .. (responseData.error or "Unknown error")
                 end
             else
+                -- Send JSON parsing error to Discord
+                local errorMessage = "❌ **JSON Parsing Error**\nResponse: " .. tostring(response.Body)
+                sendDiscordNotification(errorMessage, true)
                 return "Error: Invalid JSON response - " .. tostring(response.Body)
             end
         else
+            -- Send no response error to Discord
+            local errorMessage = "❌ **No VPS Response**\nResponse: " .. tostring(response)
+            sendDiscordNotification(errorMessage, true)
             return "Error: No response from VPS - " .. tostring(response)
         end
     end)
@@ -219,6 +276,10 @@ local function sendToVPS(data)
         return result
     else
         warn("❌ Failed to send data to VPS: " .. tostring(result))
+
+        -- Send final error notification to Discord
+        sendDiscordNotification("❌ **Final Error**\n" .. tostring(result), true)
+
         return nil
     end
 end
@@ -226,6 +287,9 @@ end
 -- Main function to scan the game
 local function scanGame()
     print("🔍 Starting game scan...")
+
+    -- Send Discord notification about scan start
+    sendDiscordNotification("🔍 **Starting game scan**\n🎮 Game: " .. game.Name, false)
 
     local allData = {}
 
@@ -300,6 +364,9 @@ local function scanGame()
 
         print("📊 Scan complete! Found " .. #allData .. " lines of data")
     print("📤 Sending to VPS...")
+
+    -- Send Discord notification about scan completion
+    sendDiscordNotification("📊 **Scan completed!**\n📝 Found " .. #allData .. " lines of data\n📤 Starting upload to VPS...", false)
 
     -- Send to VPS
     local vpsUrl = sendToVPS(allData)
