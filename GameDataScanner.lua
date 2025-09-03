@@ -167,14 +167,15 @@ local function sendToPastebin(data)
         local pasteContent = table.concat(data, "\n")
         local pasteName = "Roblox Game Data - " .. os.date("%Y-%m-%d %H:%M:%S")
 
-        -- Check if content is too large (Pastebin limit is ~512KB)
-        if #pasteContent > 500000 then -- 500KB limit
+                -- Check if content is too large (Pastebin limit is ~512KB)
+        if #pasteContent > 100000 then -- 100KB limit (much smaller)
             -- Split into multiple pastes
             local chunks = {}
-            local chunkSize = 10000 -- 10k lines per chunk
+            local chunkSize = 2000 -- 2k lines per chunk (much smaller)
             local totalChunks = math.ceil(#data / chunkSize)
 
             print("📊 Data too large! Splitting into " .. totalChunks .. " chunks...")
+            print("📏 Each chunk will be ~" .. math.floor(#pasteContent / totalChunks) .. " characters")
 
             for i = 1, totalChunks do
                 local startIndex = (i - 1) * chunkSize + 1
@@ -188,33 +189,42 @@ local function sendToPastebin(data)
                 local chunkContent = table.concat(chunk, "\n")
                 local chunkName = pasteName .. " (Part " .. i .. "/" .. totalChunks .. ")"
 
-                -- Send each chunk
+                print("📤 Uploading chunk " .. i .. "/" .. totalChunks .. " (" .. #chunkContent .. " chars)...")
+
+                -- Send each chunk with better error handling
                 local chunkBody = "api_dev_key=" .. urlEncode(PASTEBIN_API_KEY) ..
                                 "&api_option=paste" ..
                                 "&api_paste_code=" .. urlEncode(chunkContent) ..
                                 "&api_paste_name=" .. urlEncode(chunkName) ..
-                                "&api_paste_format=lua" ..
+                                "&api_paste_format=text" ..  -- Changed from lua to text
                                 "&api_paste_private=1" ..
                                 "&api_paste_expire_date=1M"
 
-                local response = request({
-                    Url = PASTEBIN_API_URL,
-                    Method = "POST",
-                    Headers = {
-                        ["Content-Type"] = "application/x-www-form-urlencoded"
-                    },
-                    Body = chunkBody
-                })
+                local chunkSuccess, chunkResult = pcall(function()
+                    local response = request({
+                        Url = PASTEBIN_API_URL,
+                        Method = "POST",
+                        Headers = {
+                            ["Content-Type"] = "application/x-www-form-urlencoded"
+                        },
+                        Body = chunkBody
+                    })
+                    return response
+                end)
 
-                if response.Body and response.Body:find("pastebin.com") then
-                    table.insert(chunks, response.Body)
-                    print("✅ Chunk " .. i .. "/" .. totalChunks .. " uploaded: " .. response.Body)
+                if chunkSuccess and chunkResult and chunkResult.Body then
+                    if chunkResult.Body:find("pastebin.com") then
+                        table.insert(chunks, chunkResult.Body)
+                        print("✅ Chunk " .. i .. "/" .. totalChunks .. " uploaded: " .. chunkResult.Body)
+                    else
+                        warn("❌ Chunk " .. i .. " failed - Response: " .. tostring(chunkResult.Body))
+                    end
                 else
-                    warn("❌ Failed to upload chunk " .. i)
+                    warn("❌ Chunk " .. i .. " failed - Error: " .. tostring(chunkResult))
                 end
 
-                -- Small delay between requests
-                wait(1)
+                -- Longer delay between requests
+                wait(2)
             end
 
             -- Return the first chunk URL with info about others
