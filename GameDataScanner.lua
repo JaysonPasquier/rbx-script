@@ -205,77 +205,37 @@ local function sendToVPS(data)
         local gameData = table.concat(data, "\n")
         local timestamp = os.date("%Y-%m-%d %H:%M:%S")
 
-        print("📤 Sending data to VPS...")
+        print("📤 Creating data URL...")
         print("📊 Data size: " .. #gameData .. " characters")
 
-        -- Send Discord notification about starting upload
-        sendDiscordNotification("🔄 **Starting game data upload**\n📊 Data size: " .. #gameData .. " characters\n🎮 Game: " .. game.Name, false)
+        -- Send Discord notification about creating URL
+        sendDiscordNotification("🔄 **Creating data URL**\n📊 Data size: " .. #gameData .. " characters\n🎮 Game: " .. game.Name, false)
 
-        -- Prepare JSON data
-        local jsonData = {
-            game_name = game.Name,
-            game_data = gameData,
-            timestamp = timestamp
-        }
+        -- Create a URL with the data (truncated for URL length limits)
+        local truncatedData = string.sub(gameData, 1, 1000000) -- Limit to 1MB for URL
+        local encodedData = HttpService:UrlEncode(truncatedData)
+        local url = "http://194.164.89.41/data-receiver.html?data=" .. encodedData
 
-        -- Send to VPS
-        local response = request({
-            Url = VPS_ENDPOINT,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/json"
-            },
-            Body = HttpService:JSONEncode(jsonData)
-        })
+        -- Send success notification to Discord
+        local successMessage = "✅ **Data URL created successfully!**\n"
+        successMessage = successMessage .. "📊 Data size: " .. #gameData .. " characters\n"
+        successMessage = successMessage .. "🔗 URL: " .. url
+        sendDiscordNotification(successMessage, false)
 
-                        if response and response.Body then
-            print("📡 VPS Response: " .. tostring(response.Body))
-
-            local success, responseData = pcall(function()
-                return HttpService:JSONDecode(response.Body)
-            end)
-
-            if success and responseData then
-                if responseData.success then
-                    -- Send success notification to Discord
-                    local successMessage = "✅ **Data uploaded successfully!**\n"
-                    successMessage = successMessage .. "📁 File: " .. (responseData.filename or "Unknown") .. "\n"
-                    successMessage = successMessage .. "📊 Size: " .. (responseData.size or "Unknown") .. " bytes\n"
-                    successMessage = successMessage .. "🔗 Viewer URL: " .. (responseData.viewer_url or "Unknown")
-                    sendDiscordNotification(successMessage, false)
-
-                    return responseData.viewer_url
-                else
-                    -- Send error notification to Discord
-                    local errorMessage = "❌ **VPS Error**\n" .. (responseData.error or "Unknown error")
-                    sendDiscordNotification(errorMessage, true)
-                    return "Error: " .. (responseData.error or "Unknown error")
-                end
-            else
-                -- Send JSON parsing error to Discord
-                local errorMessage = "❌ **JSON Parsing Error**\nResponse: " .. tostring(response.Body)
-                sendDiscordNotification(errorMessage, true)
-                return "Error: Invalid JSON response - " .. tostring(response.Body)
-            end
-        else
-            -- Send no response error to Discord
-            local errorMessage = "❌ **No VPS Response**\nResponse: " .. tostring(response)
-            sendDiscordNotification(errorMessage, true)
-            return "Error: No response from VPS - " .. tostring(response)
-        end
+        return url
     end)
 
-    if success then
-        print("✅ Data successfully sent to VPS!")
+        if success then
+        print("✅ Data URL created!")
         print("📋 VPS URL: " .. result)
-        print("🔗 Copy this URL and open it in your browser to view all your game data")
+        print("🔗 Copy this URL and open it in your browser to download the data")
 
         -- Create GUI to display URL on screen (for mobile users)
         createURLDisplay(result)
 
         return result
     else
-        warn("❌ Failed to send data to VPS: " .. tostring(result))
+        warn("❌ Failed to create data URL: " .. tostring(result))
 
         -- Send final error notification to Discord
         sendDiscordNotification("❌ **Final Error**\n" .. tostring(result), true)
@@ -374,8 +334,8 @@ local function scanGame()
     if vpsUrl then
         print("🎉 SUCCESS! Your game data is now available at:")
         print("🔗 " .. vpsUrl)
-        print("📋 Copy this URL and open it in your browser to view all your game data")
-        print("💾 You can view, download, or copy any of your saved game data files")
+        print("📋 Copy this URL and open it in your browser to download the data")
+        print("💾 The file will automatically download to your computer")
     else
         print("❌ Failed to send data to VPS. Check your VPS connection.")
     end
